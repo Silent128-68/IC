@@ -10,9 +10,31 @@ LOCK_MARK = 'ACCOUNT_LOCKED'
 MAX_ATTEMPTS = 3
 
 def hash_password(password: str) -> str:
-    password_bytes = password.encode('utf-8')
-    hash_obj = hashlib.sha256(password_bytes)
-    return hash_obj.hexdigest()
+    xor_sum = 0
+    
+    # 1. Превратить строку пароля в последовательность байт
+    data_bytes = password.encode('utf-8')
+    
+    # 2. Идти по байтам с шагом 2 (по 16 бит / 2 байта)
+    for i in range(0, len(data_bytes), 2):
+        
+        # 3. Взять "кусок" (chunk) в 2 байта
+        chunk = data_bytes[i : i+2]
+        
+        # 4. Если в "куске" не хватает байта (т.е. это конец
+        #    и у нас нечетное кол-во байт),
+        #    дополнить его нулями (b'\x00')
+        if len(chunk) == 1:
+            chunk += b'\x00' # b'\x00' - это байт-ноль
+            
+        # 5. Превратить 2 байта в одно 16-битное число
+        #    и "сложить" (XOR, ^) с предыдущим результатом
+        xor_sum ^= int.from_bytes(chunk, 'big')
+        
+    # 6. Вернуть результат в виде СТРОКИ.
+    #    Это важно, чтобы в файле могли лежать и "12345" (хэш),
+    #    и "INIT_MAGIC_WORD_123", и "ACCOUNT_LOCKED".
+    return str(xor_sum)
 
 def check_password_complexity(password: str) -> bool:
     # Определяем наши наборы символов
